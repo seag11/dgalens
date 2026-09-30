@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Downloaded data and trained models are reproducible; never commit them.
+data/
+models/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
