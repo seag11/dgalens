@@ -49,3 +49,16 @@ def test_train_rejects_empty_input(tmp_path: Path) -> None:
     empty = write_lines(tmp_path / "empty.txt", ["# nothing"])
     result = runner.invoke(app, ["train", str(empty), "--model", str(tmp_path / "m.json")])
     assert result.exit_code != 0
+
+
+def test_eval_never_counts_short_labels_as_false_positives(tmp_path: Path, benign: list[str]) -> None:
+    benign_file = write_lines(tmp_path / "benign.txt", benign)
+    model = tmp_path / "model.json"
+    runner.invoke(app, ["train", str(benign_file), "--model", str(model), "--order", "2"])
+    # Short, odd-looking benign labels score low but are below min_length, so never flagged.
+    short = write_lines(tmp_path / "short.txt", ["qzx.com", "xkq.net", "zzq.org"])
+    dga = write_lines(tmp_path / "dga.txt", ["qzxjvkwpq.com"])
+
+    result = runner.invoke(app, ["eval", str(short), str(dga), "--model", str(model)])
+    assert result.exit_code == 0, result.output
+    assert "false positive rate  0.0000" in result.output
