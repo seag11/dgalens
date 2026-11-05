@@ -22,10 +22,10 @@ $ dgalens score google.com paypal-login-secure.com q8f7g2kd9s1m.net kmbvkhwrcxqj
 
    `P(c | h) = (count(h, c) + α · P(c | shorter h)) / (count(h) + α)`
 
-   An unseen context therefore backs off to what shorter contexts predict, instead of to a uniform guess. This mattered a lot in practice. With plain add-α smoothing, an order-3 model caught only about 5% of random labels at a 1% false-positive rate, because every unseen context looked equally plausible. With interpolation it catches 92% at the calibrated threshold (see [Results](#results)).
+   An unseen context therefore backs off to what shorter contexts predict, instead of to a uniform guess. This mattered a lot in practice. With plain add-α smoothing, an order-3 model caught only about 5% of random labels at a 1% false-positive rate, because every unseen context looked equally plausible. With interpolation it catches 84% at a 1% false-positive rate on held-out data (see [Results](#results)).
 
 4. **Score.** The score is the mean log-probability per character, so long and short labels are comparable. Lower means less word-like.
-5. **Threshold.** `train` holds out 10% of the benign data and sets the threshold so that about 1% of it would be flagged (`--fpr`).
+5. **Threshold.** `train` holds out 10% of the benign data and sets the threshold so that at most 1% of it would be flagged (`--fpr`). The rate counts every held-out domain, including short ones that are never flagged, exactly as `dgalens eval` measures it.
 6. **Short labels.** Labels under 6 characters (`x7`, `k4g`) never get flagged. They carry too little signal, and legitimate short domains are common.
 
 ## Quick start
@@ -67,7 +67,7 @@ docker build -t dgalens . && docker run -p 8000:8000 dgalens
 
 ## Results
 
-**Setup.** The model is trained on the top 100,000 domains of the [Tranco list](https://tranco-list.eu): 90% for training and 10% to calibrate a 1% false-positive target. The benign test set is the next 20,000 ranks (100,001–120,000), which the model never sees. The calibrated threshold flags 1.47% of it, a little over target because less popular domains look less word-like.
+**Setup.** The model is trained on the top 100,000 domains of the [Tranco list](https://tranco-list.eu): 90% for training and 10% to calibrate a 1% false-positive target. The benign test set is the next 20,000 ranks (100,001–120,000), which the model never sees. The calibrated threshold flags 1.88% of it, nearly double the target. Less popular domains look less word-like, so a threshold set on the top 100,000 drifts on the tail. That's why the table also reports recall at fixed false-positive rates measured on the test set itself.
 
 **Generated test sets.** There are 5,000 labels per style from [`dgalens.synthetic`](src/dgalens/synthetic.py), with seed 0. They are style proxies written for this project, not reimplementations of real generators. Their specs were fixed before any results were seen.
 
@@ -84,9 +84,9 @@ Each cell shows Markov / entropy:
 
 | Style           | ROC AUC       | Recall @ 1% FPR | Recall @ 0.1% FPR | Recall @ calibrated threshold |
 | --------------- | ------------- | --------------- | ----------------- | ----------------------------- |
-| `random-alnum`  | 0.994 / 0.838 | 84.0% / 10.5%   | 14.5% / 2.1%      | 92.1%                         |
-| `random-alpha`  | 0.982 / 0.786 | 36.0% / 3.8%    | 0.4% / 0.3%       | 55.8%                         |
-| `pronounceable` | 0.945 / 0.709 | 5.2% / 0.5%     | 0.0% / 0.0%       | 11.7%                         |
+| `random-alnum`  | 0.994 / 0.838 | 84.0% / 10.5%   | 14.5% / 2.1%      | 95.2%                         |
+| `random-alpha`  | 0.982 / 0.786 | 36.0% / 3.8%    | 0.4% / 0.3%       | 68.2%                         |
+| `pronounceable` | 0.945 / 0.709 | 5.2% / 0.5%     | 0.0% / 0.0%       | 17.8%                         |
 | `dictionary`    | 0.564 / 0.574 | 0.0% / 0.0%     | 0.0% / 0.0%       | 0.0%                          |
 
 ![ROC curves per style, Markov model vs. entropy baseline, log-scale false-positive rate](docs/roc.png)

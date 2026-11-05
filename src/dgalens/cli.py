@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import random
 import sys
@@ -82,12 +81,6 @@ def score(
             typer.echo(f"{value:8.4f}  {verdict:<10}  {raw}")
 
 
-def detection_scores(model: MarkovModel, labels: list[str]) -> list[float]:
-    """Scores as the detector applies them: labels too short to judge get +inf,
-    so no threshold flags them, matching ``MarkovModel.is_suspicious``."""
-    return [model.score(label) if model.is_scoreable(label) else math.inf for label in labels]
-
-
 @app.command("eval")
 def eval_command(
     benign: Annotated[Path, typer.Argument(help="Benign domains not used in training.")],
@@ -99,8 +92,8 @@ def eval_command(
     if model.threshold is None:
         raise typer.BadParameter("model has no threshold", param_hint="--model")
     report = evaluate(
-        benign=detection_scores(model, read_labels(benign)),
-        malicious=detection_scores(model, read_labels(malicious)),
+        benign=[model.detection_score(label) for label in read_labels(benign)],
+        malicious=[model.detection_score(label) for label in read_labels(malicious)],
         threshold=model.threshold,
     )
     typer.echo(f"threshold            {report.threshold:.4f}")

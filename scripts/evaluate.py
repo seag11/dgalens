@@ -42,12 +42,16 @@ def main() -> None:
     if model.threshold is None:
         parser.error("model has no threshold")
 
-    def gated(scorer: Callable[[str], float]) -> Callable[[list[str]], list[float]]:
-        return lambda labels: [scorer(lb) if model.is_scoreable(lb) else math.inf for lb in labels]
+    def entropy_detection_score(label: str) -> float:
+        # Same short-label rule as the model, so both methods see the same benign set.
+        return entropy_score(label) if model.is_scoreable(label) else math.inf
 
-    methods = {"Markov": gated(model.score), "Entropy": gated(entropy_score)}
+    scorers: dict[str, Callable[[str], float]] = {
+        "Markov": model.detection_score,
+        "Entropy": entropy_detection_score,
+    }
     benign_labels = read_labels(args.benign)
-    benign = {name: score(benign_labels) for name, score in methods.items()}
+    benign = {name: list(map(score, benign_labels)) for name, score in scorers.items()}
     generated = {style: generate(style, args.count, args.seed) for style in STYLES}
 
     calibrated_fpr = sum(s < model.threshold for s in benign["Markov"]) / len(benign_labels)
@@ -61,8 +65,8 @@ def main() -> None:
 
     curves: dict[str, dict[str, list[tuple[float, float]]]] = {}
     for style, labels in generated.items():
-        for name, score in methods.items():
-            malicious = score(labels)
+        for name, score in scorers.items():
+            malicious = list(map(score, labels))
             row = [style, name, f"{roc_auc(benign[name], malicious):.3f}"]
             row += [f"{recall_at_fpr(benign[name], malicious, f):.1%}" for f in FPRS]
             at_threshold = sum(s < model.threshold for s in malicious) / len(malicious)

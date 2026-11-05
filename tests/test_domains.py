@@ -14,6 +14,12 @@ from dgalens.domains import normalize
         ("  example.net  ", "example"),
         ("com", ""),
         ("", ""),
+        ("192.168.10.24", ""),
+        ("http://10.0.0.1:8080/admin", ""),
+        ("2001:db8::1", ""),
+        ("[2001:db8::1]:443", ""),
+        ("https://[2001:db8::1]/path", ""),
+        ("1.2.3.4.example.com", "example"),
     ],
 )
 def test_normalize(raw: str, expected: str) -> None:

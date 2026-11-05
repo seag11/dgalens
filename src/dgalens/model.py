@@ -9,6 +9,8 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from dgalens.metrics import threshold_at_fpr
+
 START = "^"
 END = "$"
 
@@ -86,22 +88,36 @@ class MarkovModel:
         ``"k4g"``) carry too little signal and are never flagged."""
         return len(label) >= self.min_length
 
+    def detection_score(self, label: str) -> float:
+        """``score(label)``, or +inf for labels too short to judge.
+
+        This is the score that thresholds apply to: no threshold flags +inf,
+        so short labels are never flagged anywhere the model is used.
+        """
+        return self.score(label) if self.is_scoreable(label) else math.inf
+
     def calibrate(self, labels: Iterable[str], false_positive_rate: float = 0.01) -> float:
-        """Set ``threshold`` so that roughly ``false_positive_rate`` of the
-        scoreable ``labels`` (assumed benign) would be flagged."""
+        """Set ``threshold`` so that at most ``false_positive_rate`` of ``labels``
+        (assumed benign) would be flagged.
+
+        The rate is over all labels, including short ones that are never
+        flagged, so it means the same thing here as in ``dgalens eval``.
+        """
         if not 0 < false_positive_rate < 1:
             raise ValueError("false_positive_rate must be between 0 and 1")
-        scores = sorted(self.score(label) for label in labels if self.is_scoreable(label))
+        scores = [self.detection_score(label) for label in labels if label]
         if not scores:
-            raise ValueError("no scoreable labels to calibrate on")
-        index = min(int(len(scores) * false_positive_rate), len(scores) - 1)
-        self.threshold = scores[index]
-        return self.threshold
+            raise ValueError("no labels to calibrate on")
+        threshold = threshold_at_fpr(scores, false_positive_rate)
+        if math.isinf(threshold):
+            raise ValueError("too few labels long enough to score; cannot calibrate")
+        self.threshold = threshold
+        return threshold
 
     def is_suspicious(self, label: str) -> bool:
         if self.threshold is None:
             raise RuntimeError("model has no threshold; call calibrate() first")
-        return self.is_scoreable(label) and self.score(label) < self.threshold
+        return self.detection_score(label) < self.threshold
 
     def _transitions(self, label: str) -> Iterable[tuple[str, str]]:
         padded = START * self.order + label + END
