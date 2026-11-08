@@ -372,20 +372,20 @@ eval = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", specifier = ">=0.115" },
-    { name = "tldextract", specifier = ">=5.1" },
-    { name = "typer", specifier = ">=0.12" },
-    { name = "uvicorn", specifier = ">=0.30" },
+    { name = "fastapi", specifier = ">=0.162" },
+    { name = "tldextract", specifier = ">=5.4" },
+    { name = "typer", specifier = ">=0.28" },
+    { name = "uvicorn", specifier = ">=0.54" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx2", specifier = ">=2.13.1" },
-    { name = "mypy", specifier = ">=1.11" },
-    { name = "pytest", specifier = ">=8.3" },
-    { name = "ruff", specifier = ">=0.6" },
+    { name = "httpx2", specifier = ">=2.16" },
+    { name = "mypy", specifier = ">=2.4" },
+    { name = "pytest", specifier = ">=9.2" },
+    { name = "ruff", specifier = ">=0.17" },
 ]
-eval = [{ name = "matplotlib", specifier = ">=3.9" }]
+eval = [{ name = "matplotlib", specifier = ">=3.11" }]
 
 [[package]]
 name = "fastapi"
