@@ -55,6 +55,8 @@ curl -s localhost:8000/score -H 'content-type: application/json' -d '{"domain": 
 | `POST` | `/score/batch` | `{"domains": ["...", ...]}` (up to 1000) |
 | `GET`  | `/health`      |                                          |
 
+Batch results come back in input order. An input with no scoreable label, such as a bare suffix (`com`) or an IP address, gets `{"domain": ..., "error": ...}` in its place rather than failing the whole batch. `/score` returns 422 for the same input.
+
 Interactive docs are served at `/docs`.
 
 ### Docker

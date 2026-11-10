@@ -3,7 +3,7 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from dgalens.api import MAX_BATCH, create_app
+from dgalens.api import MAX_BATCH, MAX_DOMAIN_LENGTH, create_app
 from dgalens.model import MarkovModel
 
 
@@ -43,4 +43,20 @@ def test_score_rejects_bad_input(client: TestClient, payload: dict[str, str]) ->
 
 def test_batch_size_limit(client: TestClient) -> None:
     response = client.post("/score/batch", json={"domains": ["a.com"] * (MAX_BATCH + 1)})
+    assert response.status_code == 422
+
+
+def test_batch_reports_unscoreable_entries_in_place(client: TestClient) -> None:
+    domains = ["garden.com", "10.0.0.1", "com", "forest.org"]
+    response = client.post("/score/batch", json={"domains": domains})
+    assert response.status_code == 200
+    results = response.json()["results"]
+    assert [r["domain"] for r in results] == domains
+    assert [r.get("label") for r in results] == ["garden", None, None, "forest"]
+    assert "no scoreable label" in results[1]["error"]
+    assert "error" not in results[0]
+
+
+def test_batch_rejects_overlong_entries(client: TestClient) -> None:
+    response = client.post("/score/batch", json={"domains": ["x" * (MAX_DOMAIN_LENGTH + 1)]})
     assert response.status_code == 422

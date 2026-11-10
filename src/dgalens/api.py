@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -14,14 +15,17 @@ from dgalens.domains import normalize
 from dgalens.model import MarkovModel
 
 MAX_BATCH = 1000
+MAX_DOMAIN_LENGTH = 253  # the DNS limit for a full name
 
 
 class ScoreRequest(BaseModel):
-    domain: str = Field(min_length=1, max_length=253, examples=["xjkqpzwvbt.com"])
+    domain: str = Field(min_length=1, max_length=MAX_DOMAIN_LENGTH, examples=["xjkqpzwvbt.com"])
 
 
 class BatchRequest(BaseModel):
-    domains: list[str] = Field(min_length=1, max_length=MAX_BATCH)
+    domains: list[Annotated[str, Field(max_length=MAX_DOMAIN_LENGTH)]] = Field(
+        min_length=1, max_length=MAX_BATCH
+    )
 
 
 class ScoreResult(BaseModel):
@@ -31,8 +35,25 @@ class ScoreResult(BaseModel):
     suspicious: bool
 
 
+class ScoreError(BaseModel):
+    domain: str
+    error: str
+
+
 class BatchResult(BaseModel):
-    results: list[ScoreResult]
+    results: list[ScoreResult | ScoreError] = Field(
+        description="One entry per input domain, in order. Inputs with no scoreable label "
+        "(a bare suffix, an IP address) get an error entry instead of failing the batch."
+    )
+
+
+def _score(model: MarkovModel, raw: str) -> ScoreResult | ScoreError:
+    label = normalize(raw)
+    if not label:
+        return ScoreError(domain=raw, error=f"no scoreable label in {raw!r}")
+    return ScoreResult(
+        domain=raw, label=label, score=model.score(label), suspicious=model.is_suspicious(label)
+    )
 
 
 def create_app(model: MarkovModel | None = None) -> FastAPI:
@@ -48,24 +69,21 @@ def create_app(model: MarkovModel | None = None) -> FastAPI:
 
     api = FastAPI(title="dgalens", version=__version__, lifespan=lifespan)
 
-    def score_one(request: Request, raw: str) -> ScoreResult:
-        label = normalize(raw)
-        if not label:
-            raise HTTPException(status_code=422, detail=f"no scoreable label in {raw!r}")
-        m: MarkovModel = request.app.state.model
-        return ScoreResult(domain=raw, label=label, score=m.score(label), suspicious=m.is_suspicious(label))
-
     @api.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
     @api.post("/score")
     def score(body: ScoreRequest, request: Request) -> ScoreResult:
-        return score_one(request, body.domain)
+        result = _score(request.app.state.model, body.domain)
+        if isinstance(result, ScoreError):
+            raise HTTPException(status_code=422, detail=result.error)
+        return result
 
     @api.post("/score/batch")
     def score_batch(body: BatchRequest, request: Request) -> BatchResult:
-        return BatchResult(results=[score_one(request, d) for d in body.domains])
+        model: MarkovModel = request.app.state.model
+        return BatchResult(results=[_score(model, domain) for domain in body.domains])
 
     return api
 
