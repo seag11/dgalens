@@ -71,13 +71,22 @@ def score(
         if not label:
             continue
         value = model.score(label)
+        scoreable = model.is_scoreable(label)
         suspicious = model.is_suspicious(label)
         if only_suspicious and not suspicious:
             continue
         if as_json:
-            typer.echo(json.dumps({"domain": raw, "label": label, "score": value, "suspicious": suspicious}))
+            row = {
+                "domain": raw,
+                "label": label,
+                "score": value,
+                "scoreable": scoreable,
+                "suspicious": suspicious,
+            }
+            typer.echo(json.dumps(row))
         else:
-            verdict = "SUSPICIOUS" if suspicious else "ok"
+            # Display label only; JSON keeps scoreable and suspicious as separate facts.
+            verdict = "SUSPICIOUS" if suspicious else "ok" if scoreable else "short"
             typer.echo(f"{value:8.4f}  {verdict:<10}  {raw}")
 
 

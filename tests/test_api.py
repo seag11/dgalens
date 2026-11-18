@@ -60,3 +60,9 @@ def test_batch_reports_unscoreable_entries_in_place(client: TestClient) -> None:
 def test_batch_rejects_overlong_entries(client: TestClient) -> None:
     response = client.post("/score/batch", json={"domains": ["x" * (MAX_DOMAIN_LENGTH + 1)]})
     assert response.status_code == 422
+
+
+def test_score_marks_short_labels(client: TestClient) -> None:
+    body = client.post("/score", json={"domain": "k4g.com"}).json()
+    assert (body["label"], body["scoreable"], body["suspicious"]) == ("k4g", False, False)
+    assert client.post("/score", json={"domain": "garden.com"}).json()["scoreable"] is True

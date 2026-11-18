@@ -4,6 +4,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from dgalens.cli import app
+from dgalens.model import MarkovModel
 
 runner = CliRunner()
 
@@ -26,6 +27,7 @@ def test_train_score_eval(tmp_path: Path, benign: list[str], random_labels: list
     assert result.exit_code == 0, result.output
     rows = [json.loads(line) for line in result.output.splitlines()]
     assert [r["label"] for r in rows] == ["garden", "xq7zk2v9"]
+    assert all(r["scoreable"] for r in rows)
     assert rows[0]["score"] > rows[1]["score"]
 
     result = runner.invoke(app, ["eval", str(benign_file), str(dga_file), "--model", str(model)])
@@ -62,3 +64,16 @@ def test_eval_never_counts_short_labels_as_false_positives(tmp_path: Path, benig
     result = runner.invoke(app, ["eval", str(short), str(dga), "--model", str(model)])
     assert result.exit_code == 0, result.output
     assert "false positive rate  0.0000" in result.output
+
+
+def test_score_marks_short_labels(tmp_path: Path, trained: MarkovModel) -> None:
+    model = tmp_path / "model.json"
+    trained.save(model)
+
+    result = runner.invoke(app, ["score", "--model", str(model), "--json", "k4g.com"])
+    assert result.exit_code == 0, result.output
+    row = json.loads(result.output)
+    assert (row["scoreable"], row["suspicious"]) == (False, False)
+
+    result = runner.invoke(app, ["score", "--model", str(model), "k4g.com", "garden.com"])
+    assert [line.split()[1] for line in result.output.splitlines()] == ["short", "ok"]

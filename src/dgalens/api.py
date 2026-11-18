@@ -32,7 +32,10 @@ class ScoreResult(BaseModel):
     domain: str
     label: str
     score: float = Field(description="Mean log probability per character; lower looks more generated.")
-    suspicious: bool
+    scoreable: bool = Field(
+        description="False when the label is too short for the model to judge; such labels are never flagged."
+    )
+    suspicious: bool = Field(description="Whether to raise an alert for this domain.")
 
 
 class ScoreError(BaseModel):
@@ -52,7 +55,11 @@ def _score(model: MarkovModel, raw: str) -> ScoreResult | ScoreError:
     if not label:
         return ScoreError(domain=raw, error=f"no scoreable label in {raw!r}")
     return ScoreResult(
-        domain=raw, label=label, score=model.score(label), suspicious=model.is_suspicious(label)
+        domain=raw,
+        label=label,
+        score=model.score(label),
+        scoreable=model.is_scoreable(label),
+        suspicious=model.is_suspicious(label),
     )
 
 

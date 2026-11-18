@@ -26,7 +26,7 @@ $ dgalens score google.com paypal-login-secure.com q8f7g2kd9s1m.net kmbvkhwrcxqj
 
 4. **Score.** The score is the mean log-probability per character, so long and short labels are comparable. Lower means less word-like.
 5. **Threshold.** `train` holds out 10% of the benign data and sets the threshold so that at most 1% of it would be flagged (`--fpr`). The rate counts every held-out domain, including short ones that are never flagged, exactly as `dgalens eval` measures it.
-6. **Short labels.** Labels under 6 characters (`x7`, `k4g`) never get flagged. They carry too little signal, and legitimate short domains are common.
+6. **Short labels.** Labels under 6 characters (`x7`, `k4g`) never get flagged. They carry too little signal, and legitimate short domains are common. Output still includes their score but marks them `"scoreable": false` (`short` in the text output), so a low score with `"suspicious": false` isn't mistaken for a bug.
 
 ## Quick start
 
@@ -46,7 +46,7 @@ cat domains.txt | uv run dgalens score --suspicious --json
 ```sh
 uv run uvicorn dgalens.api:app
 curl -s localhost:8000/score -H 'content-type: application/json' -d '{"domain": "xjq9v2kp7z.com"}'
-# {"domain":"xjq9v2kp7z.com","label":"xjq9v2kp7z","score":-5.49,"suspicious":true}
+# {"domain":"xjq9v2kp7z.com","label":"xjq9v2kp7z","score":-5.49,"scoreable":true,"suspicious":true}
 ```
 
 | Method | Path           | Body                                     |
